@@ -1,0 +1,25 @@
+meta {
+  name: Regsiter User
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:8001/api/users/register
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "email": "testuser@example.com",
+    "password": "SecurePass123!",
+    "username": "Test User",
+    "phone": "+1234567890",
+    "role": "CUSTOMER"
+  }
+}
+
+settings {
+  encodeUrl: true
+}

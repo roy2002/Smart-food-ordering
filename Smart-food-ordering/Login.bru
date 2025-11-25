@@ -1,0 +1,22 @@
+meta {
+  name: Login
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:8001/api/users/login
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "email": "testuser@example.com",
+    "password": "SecurePass123!"
+  }
+}
+
+settings {
+  encodeUrl: true
+}
