@@ -1,0 +1,170 @@
+openapi: 3.0.3
+info:
+  title: Restaurant Service API
+  description: REST API for restaurant and menu management
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:5002
+    description: Local development server
+  - url: http://localhost:8000
+    description: API Gateway
+
+paths:
+  /api/restaurants:
+    get:
+      summary: List restaurants
+      description: Get list of restaurants with optional filters
+      parameters:
+        - name: cuisine_type
+          in: query
+          schema:
+            type: string
+          example: Italian
+        - name: min_rating
+          in: query
+          schema:
+            type: number
+            format: float
+          example: 4.0
+        - name: search
+          in: query
+          schema:
+            type: string
+          example: Pizza
+      responses:
+        '200':
+          description: Restaurants retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  restaurants:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Restaurant'
+
+    post:
+      summary: Create restaurant
+      description: Create a new restaurant (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestaurantInput'
+      responses:
+        '201':
+          description: Restaurant created successfully
+
+  /api/restaurants/{restaurant_id}:
+    get:
+      summary: Get restaurant details
+      parameters:
+        - name: restaurant_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Restaurant details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestaurantDetail'
+
+  /api/restaurants/{restaurant_id}/menu:
+    get:
+      summary: Get restaurant menu
+      parameters:
+        - name: restaurant_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: vegetarian
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Menu items
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  restaurant_id:
+                    type: integer
+                  restaurant_name:
+                    type: string
+                  menu_items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MenuItem'
+
+components:
+  schemas:
+    Restaurant:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        cuisine_type:
+          type: string
+        rating:
+          type: number
+        delivery_fee:
+          type: number
+
+    RestaurantDetail:
+      allOf:
+        - $ref: '#/components/schemas/Restaurant'
+        - type: object
+          properties:
+            address:
+              type: string
+            phone:
+              type: string
+            opening_time:
+              type: string
+            closing_time:
+              type: string
+
+    MenuItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        category:
+          type: string
+        is_vegetarian:
+          type: boolean
+
+    RestaurantInput:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        cuisine_type:
+          type: string

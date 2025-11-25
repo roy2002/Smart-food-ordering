@@ -1,0 +1,133 @@
+version: '3.8'
+
+services:
+  # Databases
+  postgres-user:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: userdb
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5431:5432"
+    volumes:
+      - user-db-data:/var/lib/postgresql/data
+
+  postgres-restaurant:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: restaurantdb
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5433:5432"
+    volumes:
+      - restaurant-db-data:/var/lib/postgresql/data
+
+  postgres-order:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: orderdb
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5434:5432"
+    volumes:
+      - order-db-data:/var/lib/postgresql/data
+
+  mongo-recommendation:
+    image: mongo:6
+    ports:
+      - "27018:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    volumes:
+      - recommendation-db-data:/data/db
+
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: password
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+
+  # API Gateway
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - USER_SERVICE_URL=http://user-service:5001
+      - RESTAURANT_SERVICE_URL=http://restaurant-service:5002
+      - ORDER_SERVICE_URL=order-service:50051
+      - RECOMMENDATION_SERVICE_URL=http://recommendation-service:5004
+    depends_on:
+      - user-service
+      - restaurant-service
+      - order-service
+      - recommendation-service
+
+  # User Service (REST)
+  user-service:
+    build: ./user-service
+    ports:
+      - "5001:5001"
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres-user:5432/userdb
+      - JWT_SECRET=your-secret-key-change-in-production
+    depends_on:
+      - postgres-user
+
+  # Restaurant Service (REST)
+  restaurant-service:
+    build: ./restaurant-service
+    ports:
+      - "5002:5002"
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres-restaurant:5432/restaurantdb
+    depends_on:
+      - postgres-restaurant
+
+  # Order Service (gRPC)
+  order-service:
+    build: ./order-service
+    ports:
+      - "50052:50051"
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres-order:5432/orderdb
+      - RABBITMQ_URL=amqp://admin:password@rabbitmq:5672/
+    depends_on:
+      - postgres-order
+      - rabbitmq
+
+  # Recommendation Service (GraphQL)
+  recommendation-service:
+    build: ./recommendation-service
+    ports:
+      - "5004:5004"
+    environment:
+      - MONGO_URL=mongodb://admin:password@mongo-recommendation:27017/
+      - MONGO_DB=recommendationdb
+    depends_on:
+      - mongo-recommendation
+
+  # Payment Service (Message Broker)
+  payment-service:
+    build: ./payment-service
+    environment:
+      - RABBITMQ_URL=amqp://admin:password@rabbitmq:5672/
+    depends_on:
+      - rabbitmq
+
+volumes:
+  user-db-data:
+  restaurant-db-data:
+  order-db-data:
+  recommendation-db-data:
+  rabbitmq-data:
