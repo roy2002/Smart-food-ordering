@@ -1,0 +1,156 @@
+version: '3.8'
+
+services:
+  # Databases for V2
+  postgres-user-v2:
+    image: postgres:15
+    container_name: postgres-user-v2
+    environment:
+      POSTGRES_DB: userdb_v2
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5441:5432"
+    volumes:
+      - user-db-data-v2:/var/lib/postgresql/data
+
+  postgres-restaurant-v2:
+    image: postgres:15
+    container_name: postgres-restaurant-v2
+    environment:
+      POSTGRES_DB: restaurantdb_v2
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5443:5432"
+    volumes:
+      - restaurant-db-data-v2:/var/lib/postgresql/data
+
+  postgres-order-v2:
+    image: postgres:15
+    container_name: postgres-order-v2
+    environment:
+      POSTGRES_DB: orderdb_v2
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5444:5432"
+    volumes:
+      - order-db-data-v2:/var/lib/postgresql/data
+
+  mongo-recommendation-v2:
+    image: mongo:6
+    container_name: mongo-recommendation-v2
+    ports:
+      - "27019:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    volumes:
+      - recommendation-db-data-v2:/data/db
+
+  # RabbitMQ Message Broker V2
+  rabbitmq-v2:
+    image: rabbitmq:3-management
+    container_name: rabbitmq-v2
+    ports:
+      - "5674:5672"    # AMQP port
+      - "15674:15672"  # Management UI port
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: password
+    volumes:
+      - rabbitmq-data-v2:/var/lib/rabbitmq
+
+  # API Gateway V2
+  api-gateway-v2:
+    build: ./api-gateway
+    image: api-gateway-v2:latest
+    container_name: api-gateway-v2
+    ports:
+      - "8001:8000"
+    environment:
+      - USER_SERVICE_URL=http://user-service-v2:5001
+      - RESTAURANT_SERVICE_URL=http://restaurant-service-v2:5002
+      - ORDER_SERVICE_URL=order-service-v2:50051
+      - RECOMMENDATION_SERVICE_URL=http://recommendation-service-v2:5004
+      - JWT_SECRET=your-secret-key-change-in-production-v2
+    depends_on:
+      - user-service-v2
+      - restaurant-service-v2
+      - order-service-v2
+      - recommendation-service-v2
+
+  # User Service V2 (REST)
+  user-service-v2:
+    build: ./user-service
+    image: user-service-v2:latest
+    container_name: user-service-v2
+    ports:
+      - "5011:5001"
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres-user-v2:5432/userdb_v2
+      - JWT_SECRET=your-secret-key-change-in-production-v2
+    depends_on:
+      - postgres-user-v2
+
+  # Restaurant Service V2 (REST)
+  restaurant-service-v2:
+    build: ./restaurant-service
+    image: restaurant-service-v2:latest
+    container_name: restaurant-service-v2
+    ports:
+      - "5012:5002"
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres-restaurant-v2:5432/restaurantdb_v2
+    depends_on:
+      - postgres-restaurant-v2
+
+  # Order Service V2 (gRPC)
+  order-service-v2:
+    build: ./order-service
+    image: order-service-v2:latest
+    container_name: order-service-v2
+    ports:
+      - "50053:50051"
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres-order-v2:5432/orderdb_v2
+      - RABBITMQ_URL=amqp://admin:password@rabbitmq-v2:5672/
+    depends_on:
+      - postgres-order-v2
+      - rabbitmq-v2
+
+  # Recommendation Service V2 (GraphQL)
+  recommendation-service-v2:
+    build: ./recommendation-service
+    image: recommendation-service-v2:latest
+    container_name: recommendation-service-v2
+    ports:
+      - "5014:5004"
+    environment:
+      - MONGO_URL=mongodb://admin:password@mongo-recommendation-v2:27017/
+      - MONGO_DB=recommendationdb_v2
+    depends_on:
+      - mongo-recommendation-v2
+
+  # Payment Service V2 (Message Broker)
+  payment-service-v2:
+    build: ./payment-service
+    image: payment-service-v2:latest
+    container_name: payment-service-v2
+    environment:
+      - RABBITMQ_URL=amqp://admin:password@rabbitmq-v2:5672/
+    depends_on:
+      - rabbitmq-v2
+
+volumes:
+  user-db-data-v2:
+  restaurant-db-data-v2:
+  order-db-data-v2:
+  recommendation-db-data-v2:
+  rabbitmq-data-v2:
+
+networks:
+  default:
+    name: food-ordering-network-v2
+    driver: bridge

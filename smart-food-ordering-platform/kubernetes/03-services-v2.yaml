@@ -1,0 +1,245 @@
+# User Service V2 Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service-v2
+  namespace: food-ordering
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: user-service-v2
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: user-service-v2
+        version: v2
+    spec:
+      containers:
+      - name: user-service-v2
+        image: user-service-v2:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5001
+        env:
+        - name: DATABASE_URL
+          value: "postgresql://user:password@postgres-user:5432/userdb"
+        - name: JWT_SECRET
+          value: "your-secret-key-change-in-production-v2"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service-v2
+  namespace: food-ordering
+spec:
+  selector:
+    app: user-service-v2
+  ports:
+  - port: 5001
+    targetPort: 5001
+  type: ClusterIP
+---
+# Restaurant Service V2 Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: restaurant-service-v2
+  namespace: food-ordering
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: restaurant-service-v2
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: restaurant-service-v2
+        version: v2
+    spec:
+      containers:
+      - name: restaurant-service-v2
+        image: restaurant-service-v2:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5002
+        env:
+        - name: DATABASE_URL
+          value: "postgresql://user:password@postgres-restaurant:5432/restaurantdb"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: restaurant-service-v2
+  namespace: food-ordering
+spec:
+  selector:
+    app: restaurant-service-v2
+  ports:
+  - port: 5002
+    targetPort: 5002
+  type: ClusterIP
+---
+# Order Service V2 Deployment (gRPC)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service-v2
+  namespace: food-ordering
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: order-service-v2
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: order-service-v2
+        version: v2
+    spec:
+      containers:
+      - name: order-service-v2
+        image: order-service-v2:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 50051
+        env:
+        - name: DATABASE_URL
+          value: "postgresql://user:password@postgres-order:5432/orderdb"
+        - name: RABBITMQ_URL
+          value: "amqp://admin:password@rabbitmq:5672/"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service-v2
+  namespace: food-ordering
+spec:
+  selector:
+    app: order-service-v2
+  ports:
+  - port: 50051
+    targetPort: 50051
+  type: ClusterIP
+---
+# Recommendation Service V2 Deployment (GraphQL)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: recommendation-service-v2
+  namespace: food-ordering
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: recommendation-service-v2
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: recommendation-service-v2
+        version: v2
+    spec:
+      containers:
+      - name: recommendation-service-v2
+        image: recommendation-service-v2:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5004
+        env:
+        - name: MONGO_URL
+          value: "mongodb://admin:password@mongodb:27017/"
+        - name: MONGO_DB
+          value: "recommendationdb"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: recommendation-service-v2
+  namespace: food-ordering
+spec:
+  selector:
+    app: recommendation-service-v2
+  ports:
+  - port: 5004
+    targetPort: 5004
+  type: ClusterIP
+---
+# Payment Service V2 Deployment (Event-driven)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service-v2
+  namespace: food-ordering
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-service-v2
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: payment-service-v2
+        version: v2
+    spec:
+      containers:
+      - name: payment-service-v2
+        image: payment-service-v2:latest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: RABBITMQ_URL
+          value: "amqp://admin:password@rabbitmq:5672/"
+---
+# API Gateway V2 Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway-v2
+  namespace: food-ordering
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api-gateway-v2
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: api-gateway-v2
+        version: v2
+    spec:
+      containers:
+      - name: api-gateway-v2
+        image: api-gateway-v2:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+        env:
+        - name: USER_SERVICE_URL
+          value: "http://user-service-v2:5001"
+        - name: RESTAURANT_SERVICE_URL
+          value: "http://restaurant-service-v2:5002"
+        - name: ORDER_SERVICE_URL
+          value: "order-service-v2:50051"
+        - name: RECOMMENDATION_SERVICE_URL
+          value: "http://recommendation-service-v2:5004"
+        - name: JWT_SECRET
+          value: "your-secret-key-change-in-production-v2"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway-v2
+  namespace: food-ordering
+spec:
+  selector:
+    app: api-gateway-v2
+  ports:
+  - port: 8000
+    targetPort: 8000
+    nodePort: 30001
+  type: NodePort
